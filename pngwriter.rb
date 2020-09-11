@@ -4,6 +4,7 @@
 require 'zlib'
 
 class PNGWriter
+  class StructuralError < StandardError; end
   COLORS = {
     g8:     {ctype: 0, cnum: 1, cbits:  8},
     g16:    {ctype: 0, cnum: 1, cbits: 16},
@@ -24,19 +25,28 @@ class PNGWriter
     @cpack_t = (@color[:cbits] == 8 ? 'C*' : 'n*')
     @image   = Array.new(@height){
       Array.new(@width){
-        Array.new(@color[:cnum], 255) }}
+        Array.new(@color[:cnum], 0)
+      }
+    }
   end
   attr_accessor :image
 
-  def set(x, y, color)
+  def set(x:, y:, color:)
+    check_range(x, y)
     @image[y][x] = color
   end
 
-  def get(x, y)
+  def get(x:, y:)
+    check_range(x, y)
     @image[y][x]
   end
 
   def from_array(ary)
+    img  = ary.flatten
+    size = @width * @height * @color[:cnum]
+    if img.length != size
+      raise StructuralError, "Invalid Array Size - Expected: #{size}, but #{img.length}"
+    end
     @image = ary.flatten.each_slice(@color[:cnum]).each_slice(@width).to_a
   end
 
@@ -68,6 +78,12 @@ class PNGWriter
   end
 
   private
+  def check_range(x, y)
+    unless (0..@width).include?(x) or (0..@height).include?(y)
+      raise StructuralError, "Out of range: X: #{x}, Y: #{y}"
+    end
+  end
+
   def write_signature(file)
     file.write("\x89PNG\r\n\x1A\n".b)
   end
@@ -86,11 +102,3 @@ class PNGWriter
     return [x, y, unit].pack('NNC')
   end
 end
-
-png = PNGWriter.new(width: 3840, height: 2160, color: :g16)
-open('sample.raw', 'rb') do |raw|
-  img = raw.read.unpack('C*')
-  new = img.each_slice(4).collect{|rgb| rgb[0..2].sum / 3 * 256}
-  png.from_array(new)
-end
-png.write('export.png')
