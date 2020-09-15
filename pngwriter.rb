@@ -2,18 +2,20 @@
 # coding: utf-8
 
 require 'zlib'
+require 'open3'
 
 class PNGWriter
   class StructuralError < StandardError; end
+  class ImportError < StandardError; end
   COLORS = {
-    g8:     {ctype: 0, cnum: 1, cbits:  8},
-    g16:    {ctype: 0, cnum: 1, cbits: 16},
-    ga8:    {ctype: 4, cnum: 2, cbits:  8},
-    ga16:   {ctype: 4, cnum: 2, cbits: 16},
-    rgb8:   {ctype: 2, cnum: 3, cbits:  8},
-    rgb16:  {ctype: 2, cnum: 3, cbits: 16},
-    rgba8:  {ctype: 6, cnum: 4, cbits:  8},
-    rgba16: {ctype: 6, cnum: 4, cbits: 16}
+    gray8:   {ctype: 0, cnum: 1, cbits:  8, cname: 'gray'},
+    gray16:  {ctype: 0, cnum: 1, cbits: 16, cname: 'gray'},
+    graya8:  {ctype: 4, cnum: 2, cbits:  8, cname: 'graya'},
+    graya16: {ctype: 4, cnum: 2, cbits: 16, cname: 'graya'},
+    rgb8:    {ctype: 2, cnum: 3, cbits:  8, cname: 'rgb'},
+    rgb16:   {ctype: 2, cnum: 3, cbits: 16, cname: 'rgb'},
+    rgba8:   {ctype: 6, cnum: 4, cbits:  8, cname: 'rgba'},
+    rgba16:  {ctype: 6, cnum: 4, cbits: 16, cname: 'rgba'}
   }
 
   def initialize(width:, height:, color: :rgba8)
@@ -30,6 +32,7 @@ class PNGWriter
     }
   end
   attr_accessor :image
+  attr_reader :width, :height, :color
 
   def set(x:, y:, color:)
     check_range(x, y)
@@ -52,6 +55,28 @@ class PNGWriter
 
   def from_string(str)
     @image = from_array(str.unpack(@cpack_t))
+  end
+
+  # ToDo: デコード処理をがんばる
+  def from_file(path)
+    @width, @height = get_size(path)
+    cmd = ['convert', path, '-depth', "#{@color[:cbits]}", "#{@color[:cname]}:-"]
+    img, stat = Open3.capture2(*cmd)
+    if stat.exitstatus == 0
+      from_string(img)
+    else
+      raise ImportError, "ImageFile import failure - #{cmd.inspect}"
+    end
+  end
+
+  private def get_size(path)
+    cmd = ['identify', '-format', "%w %h", path]
+    res, stat = Open3.capture2(*cmd)
+    if stat.exitstatus == 0
+      return res.split(/\s+/).collect{|s| s.to_i}
+    else
+      raise ImportError, "ImageFile import failure - #{cmd.inspect}"
+    end
   end
 
   def write(export_png)
@@ -77,28 +102,27 @@ class PNGWriter
     end
   end
 
-  private
-  def check_range(x, y)
+  private def check_range(x, y)
     unless (0..@width).include?(x) or (0..@height).include?(y)
       raise StructuralError, "Out of range: X: #{x}, Y: #{y}"
     end
   end
 
-  def write_signature(file)
+  private def write_signature(file)
     file.write("\x89PNG\r\n\x1A\n".b)
   end
 
-  def write_chunk(file, type, data)
+  private def write_chunk(file, type, data)
     file.write([data.length].pack('N') + type + data +
                [Zlib.crc32(type+data)].pack('N'))
   end
 
-  def ihdr(compress: 0, filter: 0, interrace: 0)
+  private def ihdr(compress: 0, filter: 0, interrace: 0)
     return [@width, @height, @color[:cbits], @color[:ctype],
             compress, filter, interrace].pack('NNCCCCC')
   end
 
-  def phys(x: 2835, y: 2835, unit: 1)
+  private def phys(x: 2835, y: 2835, unit: 1)
     return [x, y, unit].pack('NNC')
   end
 end

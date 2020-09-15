@@ -4,7 +4,7 @@
 require '../pngwriter'
 
 png_src = PNGWriter.new(width: 1000, height: 1000, color: :rgba8)
-png_dst = PNGWriter.new(width: 1000, height: 1000, color: :g8)
+png_dst = PNGWriter.new(width: 1000, height: 1000, color: :gray8)
 
 open('rgba8_1000x1000.raw', 'rb') do |raw|
   png_src.from_string(raw.read)
