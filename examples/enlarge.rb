@@ -1,7 +1,7 @@
 #!/usr/bin/ruby
 # coding: utf-8
 
-require '../pngwriter'
+require '../pngfile'
 
 SCALE      = 3
 IN_WIDTH   = 1000
@@ -9,8 +9,8 @@ IN_HEIGHT  = 1000
 OUT_WIDTH  = IN_WIDTH  * SCALE
 OUT_HEIGHT = IN_HEIGHT * SCALE
 
-png_src = PNGWriter.new(width: IN_WIDTH,  height: IN_HEIGHT,  color: :rgba8)
-png_dst = PNGWriter.new(width: OUT_WIDTH, height: OUT_HEIGHT, color: :rgba8)
+png_src = PNGFile.new(width: IN_WIDTH,  height: IN_HEIGHT,  color: :rgba8)
+png_dst = PNGFile.new(width: OUT_WIDTH, height: OUT_HEIGHT, color: :rgba8)
 
 open('rgba8_1000x1000.raw', 'rb') do |raw|
   png_src.from_string(raw.read)

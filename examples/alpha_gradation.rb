@@ -1,9 +1,9 @@
 #!/usr/bin/ruby
 # coding: utf-8
 
-require '../pngwriter'
+require '../pngfile'
 
-png = PNGWriter.new(width: 255, height: 255, color: :rgba8)
+png = PNGFile.new(width: 255, height: 255, color: :rgba8)
 
 0.upto(254) do |y|
   0.upto(254) do |x|

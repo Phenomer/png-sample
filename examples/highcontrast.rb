@@ -1,10 +1,10 @@
 #!/usr/bin/ruby
 # coding: utf-8
 
-require '../pngwriter'
+require '../pngfile'
 
-png_src = PNGWriter.new(width: 1000, height: 1000, color: :rgba8)
-png_dst = PNGWriter.new(width: 1000, height: 1000, color: :rgba8)
+png_src = PNGFile.new(width: 1000, height: 1000, color: :rgba8)
+png_dst = PNGFile.new(width: 1000, height: 1000, color: :rgba8)
 
 open('rgba8_1000x1000.raw', 'rb') do |raw|
   png_src.from_string(raw.read)

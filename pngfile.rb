@@ -3,19 +3,29 @@
 
 require 'zlib'
 require 'open3'
+require 'matrix'
 
-class PNGWriter
+class ImageMatrix < Matrix
+  if RUBY_VERSION < '2.7.0'
+    STDERR.printf("RUBY_VERSION is too old - %s\n", RUBY_DESCRIPTION)
+    def []=(i, j, pixel)
+      @rows[i][j] = pixel
+    end
+  end
+end
+
+class PNGFile
   class StructuralError < StandardError; end
   class ImportError < StandardError; end
   COLORS = {
-    gray8:   {ctype: 0, cnum: 1, cbits:  8, cname: 'gray'},
-    gray16:  {ctype: 0, cnum: 1, cbits: 16, cname: 'gray'},
+    gray8:   {ctype: 0, cnum: 1, cbits:  8, cname: 'gray' },
+    gray16:  {ctype: 0, cnum: 1, cbits: 16, cname: 'gray' },
     graya8:  {ctype: 4, cnum: 2, cbits:  8, cname: 'graya'},
     graya16: {ctype: 4, cnum: 2, cbits: 16, cname: 'graya'},
-    rgb8:    {ctype: 2, cnum: 3, cbits:  8, cname: 'rgb'},
-    rgb16:   {ctype: 2, cnum: 3, cbits: 16, cname: 'rgb'},
-    rgba8:   {ctype: 6, cnum: 4, cbits:  8, cname: 'rgba'},
-    rgba16:  {ctype: 6, cnum: 4, cbits: 16, cname: 'rgba'}
+    rgb8:    {ctype: 2, cnum: 3, cbits:  8, cname: 'rgb'  },
+    rgb16:   {ctype: 2, cnum: 3, cbits: 16, cname: 'rgb'  },
+    rgba8:   {ctype: 6, cnum: 4, cbits:  8, cname: 'rgba' },
+    rgba16:  {ctype: 6, cnum: 4, cbits: 16, cname: 'rgba' }
   }
 
   def initialize(width:, height:, color: :rgba8)
@@ -25,23 +35,24 @@ class PNGWriter
     end
     @color   = COLORS[color]
     @cpack_t = (@color[:cbits] == 8 ? 'C*' : 'n*')
-    @image   = Array.new(@height){
-      Array.new(@width){
-        Array.new(@color[:cnum], 0)
-      }
-    }
+    @image = ImageMatrix.build(@height, @width){ Array.new(@color[:cnum], 0) }
   end
-  attr_accessor :image
-  attr_reader :width, :height, :color
+  attr_reader :image, :width, :height, :color
 
   def set(x:, y:, color:)
-    check_range(x, y)
-    @image[y][x] = color
+    @image[y,x] = color
   end
 
   def get(x:, y:)
-    check_range(x, y)
-    @image[y][x]
+    @image[y,x]
+  end
+
+  def collect(x: 0..(@width-1), y: 0..(@height-1))
+    y.each do |ypos|
+      x.each do |xpos|
+        @image[ypos,xpos] = yield xpos, ypos, @image[ypos,xpos]
+      end
+    end
   end
 
   def from_array(ary)
@@ -50,11 +61,12 @@ class PNGWriter
     if img.length != size
       raise StructuralError, "Invalid Array Size - Expected: #{size}, but #{img.length}"
     end
-    @image = ary.flatten.each_slice(@color[:cnum]).each_slice(@width).to_a
+    iary   = img.each_slice{@color[:cnum]}.to_a
+    @image = ImageMatrix[*iary]
   end
 
   def from_string(str)
-    @image = from_array(str.unpack(@cpack_t))
+    from_array(str.unpack(@cpack_t))
   end
 
   # ToDo: デコード処理をがんばる
@@ -87,9 +99,9 @@ class PNGWriter
       write_chunk(png_file, 'pHYs', phys())
 
       buffer = String.new
-      @image.each do |row|
+      @image.row_vectors.each do |rv|
         # 0でフィルタなし
-        buffer << z.deflate([0].pack('C') + row.flatten.pack(@cpack_t))
+        buffer << z.deflate([0].pack('C') + rv.to_a.flatten.pack(@cpack_t))
         if buffer.length >= 9600
           write_chunk(png_file, 'IDAT', buffer.slice!(0..9599))
         end
@@ -99,12 +111,6 @@ class PNGWriter
         write_chunk(png_file, 'IDAT', buf)
       end
       write_chunk(png_file, 'IEND', '')
-    end
-  end
-
-  private def check_range(x, y)
-    unless (0..@width).include?(x) or (0..@height).include?(y)
-      raise StructuralError, "Out of range: X: #{x}, Y: #{y}"
     end
   end
 

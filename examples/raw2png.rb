@@ -1,6 +1,6 @@
 #!/usr/bin/ruby
 
-require '../pngwriter'
+require '../pngfile'
 
 # PNG(32bit RGBA) to RAW(32bit RGBA)
 # $ convert input.png -depth 8 rgba:output.raw
@@ -8,7 +8,7 @@ require '../pngwriter'
 # JPG to RAW(32bit RGBA)
 # $ convert input.jpg -depth 8 rgba:output.raw
 
-png = PNGWriter.new(width: 1000, height: 1000, color: :rgba8)
+png = PNGFile.new(width: 1000, height: 1000, color: :rgba8)
 
 open('rgba8_1000x1000.raw', 'rb') do |raw|
   png.from_string(raw.read)

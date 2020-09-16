@@ -1,13 +1,13 @@
 #!/usr/bin/ruby
 # coding: utf-8
 
-require '../pngwriter'
+require '../pngfile'
 
 # PNG(32bit RGBA) to RAW(32bit RGBA)
 # $ convert input.png -depth 8 rgba:output.raw
 
-png_u = PNGWriter.new(width: 2000, height: 1500, color: :rgba8)
-png_o = PNGWriter.new(width: 1000, height: 1000, color: :rgba8)
+png_u = PNGFile.new(width: 2000, height: 1500, color: :rgba8)
+png_o = PNGFile.new(width: 1000, height: 1000, color: :rgba8)
 
 open('rgba8_2000x1500.raw', 'rb') do |raw|
   png_u.from_string(raw.read)
