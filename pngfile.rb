@@ -7,7 +7,7 @@ require 'matrix'
 
 class ImageMatrix < Matrix
   if RUBY_VERSION < '2.7.0'
-    STDERR.printf("RUBY_VERSION is too old - %s\n", RUBY_DESCRIPTION)
+    STDERR.printf("Warning: RUBY_VERSION is too old - %s\n", RUBY_DESCRIPTION)
     def []=(i, j, pixel)
       @rows[i][j] = pixel
     end
@@ -15,6 +15,8 @@ class ImageMatrix < Matrix
 end
 
 class PNGFile
+  include Enumerable
+
   class StructuralError < StandardError; end
   class ImportError < StandardError; end
   COLORS = {
@@ -28,16 +30,27 @@ class PNGFile
     rgba16:  {ctype: 6, cnum: 4, cbits: 16, cname: 'rgba' }
   }
 
-  def initialize(width:, height:, color: :rgba8)
+  def initialize(width: 0, height: 0, color: :rgba8)
     @width, @height = width, height
     unless COLORS.has_key?(color)
       raise "Unknown Color Type - #{color}"
     end
     @color   = COLORS[color]
     @cpack_t = (@color[:cbits] == 8 ? 'C*' : 'n*')
-    @image = ImageMatrix.build(@height, @width){ Array.new(@color[:cnum], 0) }
+    @image   = ImageMatrix.build(@height, @width) do
+      Array.new(@color[:cnum], 0)
+    end
   end
   attr_reader :image, :width, :height, :color
+
+  def each
+    0.upto(@height - 1) do |y|
+      0.upto(@width - 1) do |x|
+        yield x, y, @image[y,x]
+      end
+    end
+    return self
+  end
 
   def set(x:, y:, color:)
     @image[y,x] = color
@@ -48,6 +61,16 @@ class PNGFile
   end
 
   def collect(x: 0..(@width-1), y: 0..(@height-1))
+    ary = []
+    y.each do |ypos|
+      x.each do |xpos|
+        ary << (yield xpos, ypos, @image[ypos,xpos])
+      end
+    end
+    return ary
+  end
+
+  def collect!(x: 0..(@width-1), y: 0..(@height-1))
     y.each do |ypos|
       x.each do |xpos|
         @image[ypos,xpos] = yield xpos, ypos, @image[ypos,xpos]
@@ -61,7 +84,7 @@ class PNGFile
     if img.length != size
       raise StructuralError, "Invalid Array Size - Expected: #{size}, but #{img.length}"
     end
-    iary   = img.each_slice{@color[:cnum]}.to_a
+    iary   = img.each_slice(@color[:cnum]).each_slice(@width).to_a
     @image = ImageMatrix[*iary]
   end
 
