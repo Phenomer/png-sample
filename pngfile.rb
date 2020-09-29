@@ -52,6 +52,13 @@ class PNGFile
     return self
   end
 
+  def rotate90
+    @image = Matrix[*@image.to_a.transpose.reverse]
+    height = @height
+    @height = @width
+    @width  = height
+  end
+
   def set(x:, y:, color:)
     @image[y,x] = color
   end
